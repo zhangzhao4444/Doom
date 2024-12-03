@@ -13,12 +13,18 @@ api_version = '2023-12-01-preview'
 
 class LLMClient:
 
-    def __init__(self, params, model_name):
+    def __init__(self, params, model_name, is_vision_model=False):
         """
         Mock class for the LLMClient. We can't share ours but you can write your own easily.
+
+        Parameters:
+            params (dict): Additional parameters for the client
+            model_name (str): Name of the model to use
+            is_vision_model (bool): Whether the model is a vision model (default: False)
         """
         self._params = params
         self._model_name = model_name
+        self._is_vision_model = is_vision_model
         self._client = AzureOpenAI(api_key=api_key,
                                    api_version=api_version,
                                    base_url=f"{api_base}/openai/deployments/{deployment_name}"
@@ -41,9 +47,35 @@ class LLMClient:
         Make a call
 
         Parameters:
-            prompt (str): the prompt
+            prompt (str or dict): the prompt for regular models, or a dict containing text and image_url for vision models
         """
-        response = self._client.completions.create(model=self._model_name,
-                                                   prompt=prompt,
-                                                   **self._params)
+        if self._is_vision_model:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt["text"]
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": prompt["image_url"]
+                            }
+                        }
+                    ]
+                }
+            ]
+            response = self._client.chat.completions.create(
+                model=self._model_name,
+                messages=messages,
+                **self._params
+            )
+        else:
+            response = self._client.completions.create(
+                model=self._model_name,
+                prompt=prompt,
+                **self._params
+            )
         return response
